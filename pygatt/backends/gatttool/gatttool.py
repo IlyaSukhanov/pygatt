@@ -279,14 +279,14 @@ class GATTToolBackend(BLEBackend):
         Anytime we expect something we have to expect noti/indication first for
         a short time.
         """
+        patterns = [
+            expected,
+            'Notification handle = .*? \r',
+            'Indication   handle = .*? \r',
+            '.*Invalid file descriptor.*',
+            '.*Disconnected\r',
+        ]
         with self._connection_lock:
-            patterns = [
-                expected,
-                'Notification handle = .*? \r',
-                'Indication   handle = .*? \r',
-                '.*Invalid file descriptor.*',
-                '.*Disconnected\r',
-            ]
             while True:
                 try:
                     matched_pattern_index = self._con.expect(patterns, timeout)
@@ -316,27 +316,16 @@ class GATTToolBackend(BLEBackend):
         :param value:
         :param wait_for_response:
         """
-        with self._connection_lock:
-            hexstring = ''.join('%02x' % byte for byte in value)
+        hexstring = ''.join('%02x' % byte for byte in value)
 
-            if wait_for_response:
-                cmd = 'req'
-            else:
-                cmd = 'cmd'
+        if wait_for_response:
+            cmd = 'req'
+        else:
+            cmd = 'cmd'
+        cmd = 'char-write-%s 0x%02x %s' % (cmd, handle, hexstring)
 
-            cmd = 'char-write-%s 0x%02x %s' % (cmd, handle, hexstring)
-
-            log.debug('Sending cmd=%s', cmd)
-            self._con.sendline(cmd)
-
-            if wait_for_response:
-                try:
-                    self._expect('Characteristic value written successfully')
-                except NoResponseError:
-                    log.error("No response received", exc_info=True)
-                    raise
-
-            log.info('Sent cmd=%s', cmd)
+        self._con.sendline(cmd)
+        log.info('Sent cmd=%s', cmd)
 
     @at_most_one_device
     def char_read(self, uuid):
